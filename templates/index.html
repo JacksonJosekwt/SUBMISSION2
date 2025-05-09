@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}Personalized Valuation{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-7">
+        <h2>Property Details</h2>
+        <p>Enter the key characteristics of the property. More options are available under "Advanced Details".</p>
+        
+        <form method="POST" action="{{ url_for('index') }}">
+            <h4>Key Features</h4>
+            <div class="row">
+                {% for field in main_form_fields %}
+                <div class="col-md-6"> {# Two columns for main features #}
+                    <div class="form-group">
+                        <label for="{{ field.name }}" title="{{ field.description }}">{{ field.label }}
+                            {% if field.description %}<span class="info-icon" data-toggle="tooltip" data-placement="top" title="{{ field.description }}">?</span>{% endif %}
+                        </label>
+                        {% if field.type == 'select' %}
+                            <select class="form-control form-control-sm" id="{{ field.name }}" name="{{ field.name }}">
+                                <option value="">-- Select --</option>
+                                {% for val, desc in field.options.items() %}
+                                    <option value="{{ val }}" {% if form_data.get(field.name) == val|string or (not form_data.get(field.name) and field.default|string == val|string) %}selected{% endif %}>
+                                        {{ desc }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        {% elif field.type == 'number' %}
+                            <input type="number" class="form-control form-control-sm" id="{{ field.name }}" name="{{ field.name }}" 
+                                   value="{{ form_data.get(field.name, field.default) }}" step="{{ field.step|default('any') }}">
+                        {% else %}
+                            <input type="text" class="form-control form-control-sm" id="{{ field.name }}" name="{{ field.name }}" 
+                                   value="{{ form_data.get(field.name, field.default) }}">
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <hr>
+
+            <details class="mb-3">
+                <summary style="cursor: pointer; color: #007bff; font-weight: bold;">Advanced Details & More Options</summary>
+                <div class="mt-3">
+                    <div class="row">
+                        {% for field in advanced_form_fields %}
+                        <div class="col-md-6"> {# Two columns for advanced features #}
+                            <div class="form-group">
+                                <label for="{{ field.name }}" title="{{ field.description }}">{{ field.label }}
+                                    {% if field.description %}<span class="info-icon" data-toggle="tooltip" data-placement="top" title="{{ field.description }}">?</span>{% endif %}
+                                </label>
+                                {% if field.type == 'select' %}
+                                    <select class="form-control form-control-sm" id="{{ field.name }}" name="{{ field.name }}">
+                                        <option value="">-- Select --</option>
+                                        {% for val, desc in field.options.items() %}
+                                            <option value="{{ val }}" {% if form_data.get(field.name) == val|string or (not form_data.get(field.name) and field.default|string == val|string) %}selected{% endif %}>
+                                                {{ desc }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                {% elif field.type == 'number' %}
+                                    <input type="number" class="form-control form-control-sm" id="{{ field.name }}" name="{{ field.name }}" 
+                                           value="{{ form_data.get(field.name, field.default) }}" step="{{ field.step|default('any') }}">
+                                {% else %}
+                                    <input type="text" class="form-control form-control-sm" id="{{ field.name }}" name="{{ field.name }}" 
+                                           value="{{ form_data.get(field.name, field.default) }}">
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </details>
+
+            <button type="submit" class="btn btn-primary btn-block btn-lg">Get Valuation</button>
+        </form>
+
+        {% if error_message %}
+            <div class="alert alert-danger mt-3" role="alert">
+                {{ error_message }}
+            </div>
+        {% endif %}
+
+        {% if prediction %}
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h3 class="card-title text-center">Estimated Sale Price</h3>
+                    <h2 class="card-text text-center text-success">{{ prediction }}</h2>
+                    {% if top_feature_name and top_feature_value %}
+                    <hr>
+                    <p class="card-text text-center mb-0">
+                        <small>
+                            A key factor in this estimate was the <strong>{{ top_feature_label }}</strong>,
+                            which you entered as: <strong>{{ top_feature_value }}</strong>.
+                        </small>
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="col-md-5">
+        {% if feature_importance_table %}
+        <div class="card mt-md-0 mt-4">
+            <div class="card-body">
+                <h5 class="card-title">Top Important Features (Aggregated)</h5>
+                <p class="card-text"><small>These are the most influential features (original names) considered by the model.</small></p>
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>Feature</th>
+                                <th>Importance</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in feature_importance_table %}
+                            <tr>
+                                <td title="{{ field_descriptions.get(item.feature.lower(), item.feature) }}">{{ item.feature }}</td>
+                                <td>{{ "%.4f"|format(item.importance|float) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if plots %}
+        <div class="card mt-4">
+             <div class="card-body">
+                <h5 class="card-title">Model Insights & Performance Plots</h5>
+                <div id="plotsCarousel" class="carousel slide" data-ride="carousel">
+                  <ol class="carousel-indicators">
+                    {% for title, path in plots.items() %}
+                    <li data-target="#plotsCarousel" data-slide-to="{{ loop.index0 }}" class="{% if loop.first %}active{% endif %}"></li>
+                    {% endfor %}
+                  </ol>
+                  <div class="carousel-inner">
+                    {% for title, path in plots.items() %}
+                    <div class="carousel-item {% if loop.first %}active{% endif %}">
+                      <img src="{{ path }}" class="d-block w-100" alt="{{ title }}">
+                       <div class="carousel-caption d-none d-md-block bg-dark-transparent">
+                        <p>{{ title }}</p>
+                      </div>
+                    </div>
+                    {% endfor %}
+                  </div>
+                  <a class="carousel-control-prev" href="#plotsCarousel" role="button" data-slide="prev">
+                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                    <span class="sr-only">Previous</span>
+                  </a>
+                  <a class="carousel-control-next" href="#plotsCarousel" role="button" data-slide="next">
+                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                    <span class="sr-only">Next</span>
+                  </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    $(function () {
+        $('[data-toggle="tooltip"]').tooltip()
+    })
+</script>
+{% endblock %}
